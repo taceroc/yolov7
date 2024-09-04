@@ -18,6 +18,7 @@ Tutorial:   https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data
 import argparse
 import math
 import os
+import gc
 import random
 import sys
 import time
@@ -319,6 +320,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             # Forward
             with torch.cuda.amp.autocast(amp):
                 pred = model(imgs)  # forward
+                torch.cuda.empty_cache()
+                gc.collect()
                 loss, loss_items = compute_loss(pred, targets.to(device), masks=masks.to(device).float())
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
@@ -358,6 +361,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                     if ni == 10:
                         files = sorted(save_dir.glob('train*.jpg'))
                         logger.log_images(files, "Mosaics", epoch)
+            torch.cuda.empty_cache()
+            gc.collect()
             # end batch ------------------------------------------------------------------------------------------------
 
         # Scheduler
