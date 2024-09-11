@@ -28,6 +28,7 @@ import argparse
 import os
 import platform
 import sys
+import numpy as np
 from pathlib import Path
 
 import torch
@@ -161,7 +162,12 @@ def run(
                 # Mask plotting ----------------------------------------------------------------------------------------
                 mcolors = [colors(int(cls), True) for cls in det[:, 5]]
                 im_masks = plot_masks(im[i], masks, mcolors)  # image with masks shape(imh,imw,3)
+                print("MASK SHAPE")
+                print(masks.shape)
+                np.save(f"mask_delta_no_labels/mask_{txt_path.split('/')[-1]}.npy", masks.cpu().detach().numpy())
                 annotator.im = scale_masks(im.shape[2:], im_masks, im0.shape)  # scale to original h, w
+                print(annotator.im.shape)
+                #np.save(f"maskimg_{txt_path.split('/')[-1]}.npy", annotator.im)
                 # Mask plotting ----------------------------------------------------------------------------------------
 
                 # Write results
