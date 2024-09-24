@@ -319,10 +319,16 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
             # Forward
             with torch.cuda.amp.autocast(amp):
-                pred = model(imgs)  # forward
+                #print("DEVICES FOR 322")
+                #print(next(model.parameters()).get_device(), imgs.get_device())
+                pred = model(imgs) #forward
                 torch.cuda.empty_cache()
                 gc.collect()
-                loss, loss_items = compute_loss(pred, targets.to(device), masks=masks.to(device).float())
+                loss, loss_items = compute_loss(pred, targets.to("cpu"), masks=masks.to("cpu").float())
+                loss_items = loss_items.to(device)
+                torch.cuda.empty_cache()
+                gc.collect()
+                model = model.to(device)
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
