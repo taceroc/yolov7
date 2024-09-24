@@ -325,7 +325,7 @@ def polygons2masks_overlap(img_size, segments, downsample_ratio=1):
     index = np.argsort(-areas)
     ms = np.array(ms)[index]
     for i in range(len(segments)):
-        mask = ms[i] * (i + 1)
+        mask = ms[i].astype(masks.dtype) * (i + 1)
         masks = masks + mask
         masks = np.clip(masks, a_min=0, a_max=i + 1)
     return masks, index
