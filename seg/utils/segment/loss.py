@@ -12,10 +12,12 @@ from .general import crop
 class ComputeLoss:
     # Compute losses
     def __init__(self, model, autobalance=False, overlap=False):
+        #model = model.to("cpu")
         self.sort_obj_iou = False
         self.overlap = overlap
-        device = next(model.parameters()).device  # get model device
+        device = "cpu"#next(model.parameters()).device  # get model device
         h = model.hyp  # hyperparameters
+        #h = h.to(device)
         self.device = device
 
         # Define criteria
@@ -31,18 +33,22 @@ class ComputeLoss:
             BCEcls, BCEobj = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g)
 
         m = de_parallel(model).model[-1]  # Detect() module
+        #m = m.to(device)
         self.balance = {3: [4.0, 1.0, 0.4]}.get(m.nl, [4.0, 1.0, 0.25, 0.06, 0.02])  # P3-P7
         self.ssi = list(m.stride).index(16) if autobalance else 0  # stride 16 index
         self.BCEcls, self.BCEobj, self.gr, self.hyp, self.autobalance = BCEcls, BCEobj, 1.0, h, autobalance
         self.na = m.na  # number of anchors
+        #self.na = self.na.to(device)
         self.nc = m.nc  # number of classes
         self.nl = m.nl  # number of layers
         self.nm = m.nm  # number of masks
         self.anchors = m.anchors
+        self.anchors = self.anchors.to(device)
         self.device = device
 
     def __call__(self, preds, targets, masks):  # predictions, targets, model
         p, proto = preds
+        proto = proto.to(self.device)
         bs, nm, mask_h, mask_w = proto.shape  # batch size, number of masks, mask height, mask width
         lcls = torch.zeros(1, device=self.device)
         lbox = torch.zeros(1, device=self.device)
@@ -53,6 +59,7 @@ class ComputeLoss:
         # Losses
         for i, pi in enumerate(p):  # layer index, layer predictions
             b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
+            pi = pi.to(self.device)
             tobj = torch.zeros(pi.shape[:4], dtype=pi.dtype, device=self.device)  # target obj
 
             n = b.shape[0]  # number of targets
@@ -61,6 +68,7 @@ class ComputeLoss:
 
                 # Box regression
                 pxy = pxy.sigmoid() * 2 - 0.5
+                print(pwh.sigmoid().get_device(), anchors[i].get_device())
                 pwh = (pwh.sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
                 iou = bbox_iou(pbox, tbox[i], CIoU=True).squeeze()  # iou(prediction, target)
@@ -130,6 +138,7 @@ class ComputeLoss:
             ti = torch.cat(ti, 1)  # (na, nt)
         else:
             ti = torch.arange(nt, device=self.device).float().view(1, nt).repeat(na, 1)
+        print(targets.get_device(), ai.get_device(), ti.get_device())
         targets = torch.cat((targets.repeat(na, 1, 1), ai[..., None], ti[..., None]), 2)  # append anchor indices
 
         g = 0.5  # bias
